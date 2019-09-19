@@ -5,6 +5,7 @@ date: "9/10/2019"
 output:
   html_document:
     df_print: paged
+  word_document: default
 editor_options:
   chunk_output_type: console
 ---
@@ -17,17 +18,17 @@ editor_options:
 
 ### Data read in
 First we need to get our snow metric (ndsi) data and then also download discharge data from the USGS
-```{r, include = FALSE}
+```{r, warning = FALSE, message= FALSE}
 library(tidyverse) 
 library(lubridate)
 library(ggthemes)
 library(dataRetrieval) #for downloading USGS data
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir='..')
+
 ```
 
-
-```{r, include = FALSE}
+```{r, message = FALSE, warning = FALSE}
 #ndsi
 ndsi <- read_csv('data/hayman_ndsi.csv') %>%
   rename(burned=2,unburned=3) %>%
@@ -49,7 +50,6 @@ q_hayman <- readNWISdata(sites=c('06700000'), #Site code
   as_tibble() #To make it act like a tibble
 ```
 
-
 ### Data Exploring
 
 #### NDSI summary
@@ -70,7 +70,7 @@ summary(q_hayman)
 
 When analyzing water flux data, we typically break the year up into “water years” which run from October to the end of September. For this exploratory analysis, we want to group the datasets by water year and then join them to each other so we can compare winter average, max, median, etc… of snow cover versus the next water year’s water flux. So we have to add a column called water year
 
-#### Q water yar
+#### Q water year
 ```{r}
 q_water_year <- q_hayman %>%
   mutate(month=month(dateTime),
@@ -93,18 +93,48 @@ Now that we have our matched datasets we want to do a couple filtering operation
 
 ### Snow water year summary statistics
 
-```{r, echo = FALSE}
+```{r, warning = FALSE}
 
- 
-
-winter_rmd <-filter(ndsi_water_year, month %in% 10:12, 1:5) %>%
+winter_rmd <-filter(ndsi_water_year, month %in% 1, 2, 3, 4, 5, 10, 11, 12) %>%
   group_by(wtr_yr) %>%
   summarize(mean_ndsi = mean(ndsi),
             max_ndsi = max(ndsi),
             median_ndsi = median(ndsi))
-                    
+head(winter_rmd)               
+
+```
+
+### Whole Q water year summaries
+
+```{r}
+
+Q_rmd <-filter(q_water_year, wtr_yr >= 2003) %>%
+  group_by(wtr_yr) %>%
+  summarize(mean_q = mean(q_cfs),
+            max_q = max(q_cfs),
+            median_q = median(q_cfs))
 
 
+```
 
+## Plots of Snow Cover vs Q
+
+### Mean Snow vs Median Q
+
+```{r, echo = FALSE}
+complete <- inner_join(Q_rmd, winter_rmd, by = 'wtr_yr')
+```
+
+```{r}
+ggplot(complete, aes(x = mean_ndsi, y = median_q, color = wtr_yr))+
+  geom_point()+
+  theme_few()
+```
+
+# Max Snow vs. Median Q
+```{r}
+ggplot(complete, aes(x = max_ndsi, y = mean_q, color = wtr_yr))+
+  geom_point()+
+  theme_few()
 ```
 
